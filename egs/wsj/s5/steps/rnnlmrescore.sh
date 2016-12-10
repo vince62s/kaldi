@@ -66,9 +66,9 @@ elif [ ! -f $oldlm ]; then
     exit 1;
 fi
 
-for f in $rnndir/rnnlm $data/feats.scp $indir/lat.1.gz; do
-  [ ! -f $f ] && echo "$0: expected file $f to exist." && exit 1;
-done
+#for f in $rnndir/rnnlm $data/feats.scp $indir/lat.1.gz; do
+#  [ ! -f $f ] && echo "$0: expected file $f to exist." && exit 1;
+#done
 
 nj=`cat $indir/num_jobs` || exit 1;
 mkdir -p $dir;
@@ -182,12 +182,18 @@ if [ $stage -le 5 ]; then
       $adir.$n/lmwt.lmonly || exit 1;
   done
 fi
+
 if [ $stage -le 6 ]; then
   echo "$0: invoking rnnlm_compute_scores.sh which calls rnnlm, to get RNN LM scores."
-  $cmd JOB=1:$nj $dir/log/rnnlm_compute_scores.JOB.log \
-    utils/rnnlm_compute_scores.sh --rnnlm_ver $rnnlm_ver $rnndir $adir.JOB/temp $adir.JOB/words_text $adir.JOB/lmwt.rnn \
-    || exit 1;
+#  $cmd JOB=1:$nj $dir/log/rnnlm_compute_scores.JOB.log \
+#    utils/rnnlm_compute_scores.sh --rnnlm_ver $rnnlm_ver $rnndir $adir.JOB/temp $adir.JOB/words_text $adir.JOB/lmwt.rnn \
+#    || exit 1;
+  for JOB in `seq $nj`; do
+    utils/rnnlm_compute_scores.sh --rnnlm_ver $rnnlm_ver $rnndir $adir.$JOB/temp $adir.$JOB/words_text $adir.$JOB/lmwt.rnn \
+     > $dir/log/rnnlm_compute_scores.$JOB.log
+  done 
 fi
+
 if [ $stage -le 7 ]; then
   echo "$0: reconstructing total LM+graph scores including interpolation of RNNLM and old LM scores."
   for n in `seq $nj`; do
@@ -209,7 +215,7 @@ fi
 if ! $skip_scoring ; then
   [ ! -x local/score.sh ] && \
     echo "Not scoring because local/score.sh does not exist or not executable." && exit 1;
-  local/score.sh --cmd "$cmd" $data $oldlang $dir ||
+  local/score.sh --cmd "$cmd" --min-lmwt 5 $data $oldlang $dir ||
     { echo "$0: Scoring failed. (ignore by '--skip-scoring true')"; exit 1; }
 fi
 

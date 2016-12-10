@@ -178,14 +178,14 @@ if [ $stage -le 16 ]; then
   # systems.  If not we'll remove this stage.
   local/run_cleanup_segmentation.sh
 fi
-
+exit 0
 
 # TODO: xiaohui-zhang will add lexicon cleanup at some point.
 
 if [ $stage -le 17 ]; then
   # This will only work if you have GPUs on your system (and note that it requires
   # you to have the queue set up the right way... see kaldi-asr.org/doc/queue.html)
-  local/chain/run_tdnn.sh --train-set train --gmm tri3 --nnet3-affix ""
+  local/chain/run_tdnn.sh --train-set train --gmm tri3 --nnet3-affix "" --stage 17
 fi
 
 # The nnet3 TDNN recipe:

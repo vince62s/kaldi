@@ -27,7 +27,7 @@ ensure_normalized_probs=false  # if true then we add the neccesary options to
 
 rnnlm=$KALDI_ROOT/tools/$rnnlm_ver/rnnlm
 
-[ ! -f $rnnlm ] && echo No such program $rnnlm && exit 1;
+#[ ! -f $rnnlm ] && echo No such program $rnnlm && exit 1;
 
 if [ $# != 4 ]; then
   echo "Usage: rnnlm_compute_scores.sh <rnn-dir> <temp-dir> <input-text> <output-scores>"
@@ -39,16 +39,17 @@ tempdir=$2
 text_in=$3
 scores_out=$4
 
-for x in rnnlm wordlist.rnn unk.probs; do
-  if [ ! -f $dir/$x ]; then 
-    echo "rnnlm_compute_scores.sh: expected file $dir/$x to exist."
-    exit 1;
-  fi
-done
+#for x in rnnlm wordlist.rnn unk.probs; do
+#  if [ ! -f $dir/$x ]; then 
+#    echo "rnnlm_compute_scores.sh: expected file $dir/$x to exist."
+#    exit 1;
+#  fi
+#done
 
 mkdir -p $tempdir
 cat $text_in | awk '{for (x=2;x<=NF;x++) {printf("%s ", $x)} printf("\n");}' >$tempdir/text
 cat $text_in | awk '{print $1}' > $tempdir/ids # e.g. utterance ids.
+if true; then
 cat $tempdir/text | awk -v voc=$dir/wordlist.rnn -v unk=$dir/unk.probs \
   -v logprobs=$tempdir/loglikes.oov \
  'BEGIN{ while((getline<voc)>0) { invoc[$1]=1; } while ((getline<unk)>0){ unkprob[$1]=$2;} }
@@ -61,7 +62,9 @@ cat $tempdir/text | awk -v voc=$dir/wordlist.rnn -v unk=$dir/unk.probs \
       if (unkprob[w] != 0) { logprob += log(unkprob[w]); }
       else { print "Warning: unknown word ", w | "cat 1>&2"; logprob += log(1.0e-07); }}}
     printf("\n"); print logprob > logprobs } ' > $tempdir/text.nounk
-
+else
+cat $tempdir/text > $tempdir/text.nounk
+fi
 # OK, now we compute the scores on the text with OOVs replaced
 # with <RNN_UNK>
 
@@ -73,11 +76,18 @@ if [ $rnnlm_ver == "faster-rnnlm" ]; then
   $rnnlm $extra_options -independent -rnnlm $dir/rnnlm -test $tempdir/text.nounk -nbest -debug 0 | \
      awk '{print $1*log(10);}' > $tempdir/loglikes.rnn
 else
+ if [ $rnnlm_ver == "tfrnnlm" ]; then
+   export CUDA_VISIBLE_DEVICES=0
+   cat $tempdir/text.nounk | python ~/tensorflowwork/tf_rnnlm_tedlium/word_lm.py --action=loglikes --model_dir=$dir/ | \
+     awk '{print $1*log(10);}' > $tempdir/loglikes.rnn
+#   sed -i '1 d' $tempdir/loglikes.rnn
+ else 
   # add the utterance_id as required by Mikolove's rnnlm
   paste $tempdir/ids $tempdir/text.nounk > $tempdir/id_text.nounk
 
   $rnnlm -independent -rnnlm $dir/rnnlm -test $tempdir/id_text.nounk -nbest -debug 0 | \
      awk '{print $1*log(10);}' > $tempdir/loglikes.rnn
+ fi 
 fi
 
 [ `cat $tempdir/loglikes.rnn | wc -l` -ne `cat $tempdir/loglikes.oov | wc -l` ] && \
