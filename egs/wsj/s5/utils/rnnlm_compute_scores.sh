@@ -78,7 +78,7 @@ if [ $rnnlm_ver == "faster-rnnlm" ]; then
 else
  if [ $rnnlm_ver == "tfrnnlm" ]; then
    export CUDA_VISIBLE_DEVICES=0
-   cat $tempdir/text.nounk | python ~/tensorflowwork/tf_rnnlm_tedlium/word_lm.py --action=loglikes --model_dir=$dir/ | \
+   cat $tempdir/text.nounk | python ~/tensorflowwork/tf_rnnlm_tedlium/dyn_word_lm.py --action=loglikes --model_dir=$dir/ | \
      awk '{print $1*log(10);}' > $tempdir/loglikes.rnn
 #   sed -i '1 d' $tempdir/loglikes.rnn
  else 
